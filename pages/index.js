@@ -3,7 +3,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, usePrepareContractWrite, useContractWrite, useContractRead, useWaitForTransaction } from 'wagmi'
 import { useIsMounted } from './api/useIsMounted'
 import { minterABI } from "../contracts/MinterABI.ts";
-import { BigNumber } from "@ethersproject/bignumber";
+import { ethers } from "ethers";
 
 
 const minterConfig = {
@@ -49,13 +49,13 @@ export default function Home() {
     args: [30, 0],
   });
 
-  React.useEffect(() => {
-    if (policyPrice) {
-      setPolicyPrice(priceData.toNumber());
-    }
-  }, [priceData]);
+  // React.useEffect(() => {
+  //   if (policyPrice) {
+  //     setPolicyPrice(ethers.utils.formatEther(priceData));
+  //   }
+  // }, [priceData]);
 
-  console.log(policyPrice);
+  console.log(priceData.toNumber());
 
   // const isMinted = txSuccess;
   const isMinted = true;
