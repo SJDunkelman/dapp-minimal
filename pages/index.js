@@ -4,6 +4,7 @@ import { useAccount, usePrepareContractWrite, useContractWrite, useContractRead,
 import { useIsMounted } from './api/useIsMounted'
 import { minterABI } from "../contracts/MinterABI.ts";
 import SEO from '../components/SEO';
+const { ethers } = require("ethers");
 
 
 const minterConfig = {
@@ -25,19 +26,14 @@ export default function Home() {
   // Page 4 (mint)
   const { config } = usePrepareContractWrite({
     ...minterConfig,
-    functionName: 'mint'
-  })
+    functionName: "mint",
+    args: [30, 0, 15000000000000000],
+    overrides: {
+      value: ethers.utils.parseEther("15000000000000000"),
+    },
+  });
 
-  // const [{ 
-  //   data: mintData,
-  //   write: mint, 
-  //   isLoading: isMintLoading,
-  //   isSuccess: isMintStarted
-  //  }, mintNFT] = useContractWrite(config);
-
-  // const { isSuccess: txSuccess} = useWaitForTransaction({
-  //   hash: mintData?.hash,
-  // })
+  const { data, write, error: writeError } = useContractWrite(config);
 
   const priceArguments = [30, 0]
 
@@ -55,9 +51,8 @@ export default function Home() {
   //   }
   // }, [priceData]);
 
-  // console.log(priceData.toNumber());
+  // console.log(ethers.utils.formatEther(priceData));
 
-  // const isMinted = txSuccess;
   const isMinted = true;
 
   // const mintArguments = [policyDuration, policyType, ];
@@ -107,11 +102,11 @@ export default function Home() {
 
         <h1>4.</h1>
           {policyPrice}
-          {/* <p>{priceSuccess ? priceData : "Failed to get price"}</p>
+          {/* <p>{priceSuccess ? priceData : "Failed to get price"}</p> */}
           <div className={`w-24 h-48 mb-4 ${isMinted ? "bg-green-600" : "bg-slate-300"}`} />
           {mounted ? isConnected && 
-          <button className='px-2 py-1 rounded-xl bg-blue-400' onClick={() => mintNFT?.()}>Mint</button>
-          : null} */}
+          <button className='px-2 py-1 rounded-xl bg-blue-400' onClick={() => write?.()}>Mint</button>
+          : null}
       </main>
     </>
   )
