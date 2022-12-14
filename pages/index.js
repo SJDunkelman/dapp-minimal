@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, usePrepareContractWrite, useContractWrite, useContractRead, useWaitForTransaction } from 'wagmi'
 import { useIsMounted } from './api/useIsMounted'
 import { minterABI } from "../contracts/MinterABI.ts";
-import { useState } from 'react';
+import { BigNumber } from "@ethersproject/bignumber";
 
 
 const minterConfig = {
   address: '0x5F3eA712766849363c340cc49b8Cd24039680448',
-  abi: minterABI,
+  minterABI,
 };
 
 export default function Home() {
@@ -44,19 +44,17 @@ export default function Home() {
   const [policyPrice, setPolicyPrice] = React.useState(0);
 
   const { data: priceData, isSuccess: priceSuccess } = useContractRead({
-    address: '0x5F3eA712766849363c340cc49b8Cd24039680448',
-    abi: minterABI,
+    ...minterConfig,
     functionName: 'getPrice',
     args: [30, 0],
   });
 
   React.useEffect(() => {
     if (policyPrice) {
-      setPolicyPrice(priceData.toBigInt());
+      setPolicyPrice(BigNumber.toBigInt(priceData));
     }
   }, [priceData]);
 
-  console.log(priceData);
   // const isMinted = txSuccess;
   const isMinted = true;
 
@@ -104,6 +102,7 @@ export default function Home() {
       </div>
 
       <h1>4.</h1>
+        {policyPrice}
         {/* <p>{priceSuccess ? priceData : "Failed to get price"}</p>
         <div className={`w-24 h-48 mb-4 ${isMinted ? "bg-green-600" : "bg-slate-300"}`} />
         {mounted ? isConnected && 
