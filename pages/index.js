@@ -52,10 +52,11 @@ export default function Home() {
 
   React.useEffect(() => {
     if (policyPrice) {
-      setPolicyPrice(priceData.toNumber());
+      setPolicyPrice(priceData.toBigInt());
     }
   }, [priceData]);
 
+  console.log(priceData);
   // const isMinted = txSuccess;
   const isMinted = true;
 
@@ -103,11 +104,11 @@ export default function Home() {
       </div>
 
       <h1>4.</h1>
-        <p>{priceSuccess ? priceData : "Failed to get price"}</p>
+        {/* <p>{priceSuccess ? priceData : "Failed to get price"}</p>
         <div className={`w-24 h-48 mb-4 ${isMinted ? "bg-green-600" : "bg-slate-300"}`} />
         {mounted ? isConnected && 
         <button className='px-2 py-1 rounded-xl bg-blue-400' onClick={() => mintNFT?.()}>Mint</button>
-        : null}
+        : null} */}
     </main>
   )
 }
