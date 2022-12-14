@@ -1,3 +1,4 @@
+import React from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, usePrepareContractWrite, useContractWrite, useContractRead, useWaitForTransaction } from 'wagmi'
 import { useIsMounted } from './api/useIsMounted'
@@ -7,7 +8,7 @@ import { useState } from 'react';
 
 const minterConfig = {
   address: '0x5F3eA712766849363c340cc49b8Cd24039680448',
-  minterABI,
+  abi: minterABI,
 };
 
 export default function Home() {
@@ -40,11 +41,20 @@ export default function Home() {
 
   const priceArguments = [30, 0]
 
+  const [policyPrice, setPolicyPrice] = React.useState(0);
+
   const { data: priceData, isSuccess: priceSuccess } = useContractRead({
-    ...minterConfig,
+    address: '0x5F3eA712766849363c340cc49b8Cd24039680448',
+    abi: minterABI,
     functionName: 'getPrice',
     args: [30, 0],
   });
+
+  React.useEffect(() => {
+    if (policyPrice) {
+      setPolicyPrice(priceData.toNumber());
+    }
+  }, [priceData]);
 
   // const isMinted = txSuccess;
   const isMinted = true;
