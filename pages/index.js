@@ -51,9 +51,11 @@ export default function Home() {
 
   React.useEffect(() => {
     if (policyPrice) {
-      setPolicyPrice(BigNumber.toBigInt(priceData));
+      setPolicyPrice(priceData.toNumber());
     }
   }, [priceData]);
+
+  console.log(policyPrice);
 
   // const isMinted = txSuccess;
   const isMinted = true;
