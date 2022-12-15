@@ -12,29 +12,30 @@ import BigNumber from 'bignumber.js';
 import { useIsMounted } from './api/useIsMounted'
 import { minterABI } from "../contracts/MinterABI.ts";
 import { usdcABI } from "../contracts/UsdcABI.ts";
-import { abi as HealthPotionABI } from "../contracts/HealthPotionABI";
 import SEO from '../components/SEO';
 
 
 const minterContractProps = {
-  address: '0x5F3eA712766849363c340cc49b8Cd24039680448',
+  address: '0x88426e177F30263f7C716905b49c7499e83D162D',
   abi: minterABI,
 };
 
 const usdcContractProps = {
-  address: '0x07865c6E87B9F70255377e024ace6630C1Eaa37F',
+  address: '0xe0A9dfEF8c40CE8F74CD8C99EE889E15D5116157',
   abi: usdcABI,
 };
 
-const healthPotionProps = {
-  address: '0x3E645C0E0BCbA8F2cC53248221bE36f99eb3cB7e',
-  abi: HealthPotionABI,
+const scaleDown = (value, decimals = 18) => {
+  if (!value || isNaN(value)) {
+    return '0'
+  }
+
+  return new BigNumber(value).dividedBy(new BigNumber(10).pow(decimals)).decimalPlaces(6)
 }
 
 export default function Home() {
-  const [isApproveLoading, setApproveLoading] = useState(false)
-  const [isMintLoading, setMintLoading] = useState(false)
-  const [notifyMessage, setNotifyMessage] = useState(null)
+  const [isLoading, setLoading] = useState(false)
+  const [notifyMessage, setNotifyMessage] = useState(undefined)
   const [hasError, setHasError] = useState(false)
 
   // Basics for wagmi
@@ -45,57 +46,89 @@ export default function Home() {
   const [policyDays, setPolicyDays] = useState(30); // This can be either 30, 90, 180 or 365
   const [policyType, setPolicyType] = useState(0); // This can be either 0 or 1
 
-  const nftBalanceOfResult = useContractRead({
-    ...healthPotionProps,
-    functionName: 'balanceOf',
-    args: [address]
-  })
-
-  const priceResult = useContractRead({
-    ...minterContractProps,
-    functionName: 'getPrice',
-    args: [policyDays, policyType]
-  })
-
-  const usdcAllowanceResult = useContractRead({
-    ...usdcContractProps,
-    functionName: 'allowance',
-    args: [address, minterContractProps.address]
-  })
-
-  const increaseAllowanceVal = priceResult.isSuccess && usdcAllowanceResult.isSuccess
-    ? new BigNumber(priceResult.data?.toString() || '0').minus(
-      new BigNumber(usdcAllowanceResult.data?.toString() || '0')
-    )
-    : new BigNumber('0')
-  const { config: allowanceConfig } = usePrepareContractWrite({
-    ...usdcContractProps,
-    functionName: 'increaseAllowance',
-    args: [
-      minterContractProps.address,
-      // TODO: can use ethers.constant.MaxUint256 instead
-      increaseAllowanceVal.isGreaterThan(0) ? increaseAllowanceVal.toString() : '0',
-    ]
-  })
-
-  const { writeAsync: approveCallback } = useContractWrite(allowanceConfig)
-  const isApproveDisabled = isApproveLoading || isMintLoading || !approveCallback
-
-  const { config: mintConfig } = usePrepareContractWrite({
-    ...minterContractProps,
-    functionName: 'mint',
-    args: [
-      policyDays,
-      policyType,
-      priceResult.data?.toString() || '0'
-    ],
-    overrides: {
-      value: policyType === 0 ? ethers.utils.parseUnits(priceResult.data?.toString() || '0', 'wei') : '0x0'
+  let price = new BigNumber(0)
+  let approvedAmount = new BigNumber(0)
+  try {
+    const priceResult = useContractRead({
+      ...minterContractProps,
+      functionName: 'getPrice',
+      args: [policyDays, policyType]
+    })
+    if (priceResult.data) {
+      price = new BigNumber(priceResult.data.toString())
     }
-  })
+  
+    const usdcAllowanceResult = useContractRead({
+      ...usdcContractProps,
+      functionName: 'allowance',
+      args: [address, minterContractProps.address],
+      cacheOnBlock: true,
+      watch: true,
+    })
+    if (usdcAllowanceResult.data) {
+      approvedAmount = new BigNumber(usdcAllowanceResult.data.toString())
+    }
+  } catch (err) {
+    
+  }
 
-  const { writeAsync: mintCallback } = useContractWrite(mintConfig)
-  const isMintDisabled = isApproveLoading || isMintLoading || !mintCallback
+  let approveCallback = undefined
+  const errorMessages = []
+  const pendingApprovalAmount = !price.isEqualTo(0) ? price.minus(approvedAmount) : new BigNumber('0')
+  try {
+    const { config: allowanceConfig, error: approveError } = usePrepareContractWrite({
+      ...usdcContractProps,
+      functionName: 'increaseAllowance',
+      args: [
+        minterContractProps.address,
+        // TODO: can use ethers.constant.MaxUint256 instead
+        pendingApprovalAmount.isGreaterThan(0) ? pendingApprovalAmount.toString() : '0',
+      ],
+    })
+    errorMessages.push(approveError?.toString())
+  
+    const { writeAsync: _approveCallback } = useContractWrite(allowanceConfig)
+    if (!!_approveCallback) {
+      approveCallback = _approveCallback
+    }
+  } catch (err) {
+    
+  }
+  
+  let mintCallback = undefined
+  try {
+    const { config: mintConfig, error: mintError } = usePrepareContractWrite({
+      ...minterContractProps,
+      functionName: 'mint',
+      args: [
+        policyDays,
+        policyType,
+        price.toString() || '0'
+      ],
+      overrides: {
+        value: policyType === 0 ? ethers.utils.parseUnits(price.toString() || '0', 'wei') : '0x0'
+      },
+    })
+    errorMessages.push(mintError?.toString())
+  
+    const { writeAsync: _mintCallback } = useContractWrite(mintConfig)
+    if (!!_mintCallback) {
+      mintCallback = _mintCallback
+    }
+  } catch (err) {
+    
+  }
+
+  let step = 0
+  let btnText = 'Mint'
+  if (policyType === 1) {
+    step = 1
+    btnText = 'Approve USDC'
+  }
+  if (policyType === 0 || pendingApprovalAmount.isLessThanOrEqualTo(0)) {
+    step = 2
+    btnText = `Mint (${scaleDown(price.toString(), policyType === 0 ? 18 : 6)} ${policyType === 0 ? 'ETH' : 'USDC'})`
+  }
 
   const handleChangeDays = (evt) => {
     setPolicyDays(Number(evt.target?.value))
@@ -105,24 +138,21 @@ export default function Home() {
     setPolicyType(Number(evt.target?.value))
   }
 
-  const scaleDown = (value, decimals = 18) => {
-    if (!value || isNaN(value)) {
-      return '0'
+  const handleApprove = async () => {
+    if (!approveCallback) {
+      setHasError(true)
+      setNotifyMessage(errorMessages[0])
+      return
     }
 
-    return new BigNumber(value).dividedBy(new BigNumber(10).pow(decimals)).decimalPlaces(6)
-  }
-
-  const handleApprove = async () => {
-    setApproveLoading(true)
-
+    setLoading(true)
     setHasError(false)
-    setNotifyMessage('Waiting for approval...')
     try {
       const tx = await approveCallback?.()
+      setNotifyMessage(`Submitting (tx: ${tx.hash})...`)
       if (tx && tx.hash) {
         await tx.wait(2)
-        setNotifyMessage(`Approved: ${tx.hash}`)
+        setNotifyMessage(undefined)
       }
     } catch (err) {
       console.log('handleApprove', 'err', err)
@@ -130,25 +160,24 @@ export default function Home() {
       setNotifyMessage(`Approve Error: ${err.toString()}`)
     }
 
-    setApproveLoading(false)
+    setLoading(false)
   }
 
   const handleMint = async () => {
-    if (!new BigNumber(nftBalanceOfResult.data?.toString() || '0').isEqualTo(0)) {
+    if (!mintCallback) {
       setHasError(true)
-      setNotifyMessage('Can only mint one token per wallet')
+      setNotifyMessage(errorMessages[1])
       return
     }
 
-    setMintLoading(true)
-
+    setLoading(true)
     setHasError(false)
-    setNotifyMessage('Waiting for minting...')
     try {
       const tx = await mintCallback?.()
+      setNotifyMessage(`Submitting (tx: ${tx.hash})...`)
       if (tx && tx.hash) {
         await tx.wait(2)
-        setNotifyMessage(`Minted: ${tx.hash}`)
+        setNotifyMessage(`Minted!`)
       }
     } catch (err) {
       console.log('handleMint', 'err', err)
@@ -156,7 +185,7 @@ export default function Home() {
       setNotifyMessage(`Mint Error: ${err.toString()}`)
     }
 
-    setMintLoading(false)
+    setLoading(false)
   }
 
 
@@ -250,36 +279,18 @@ export default function Home() {
             ) }
 
             <div className='flex flex-col justify-center items-center w-1/3 mt-6'>
-              { policyType === 1 && increaseAllowanceVal.isGreaterThan(0) && (
-                <button
-                className={classNames(
-                  'border-2 border-neutral-900 rounded-lg hover:text-red-600 hover:border-red-600 h-12 w-2/3 px-6 mb-4',
-                  isApproveDisabled ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
-                )}
-                  disabled={isApproveDisabled}
-                  onClick={handleApprove}
-                >
-                  { isApproveLoading ? (
-                    <div className='spinner text-red-600'></div>
-                  ) : (
-                    <div>Approve USDC</div>
-                  ) }
-                </button>
-              ) }
               <button
                 className={classNames(
                   'border-2 border-neutral-900 rounded-lg hover:text-red-600 hover:border-red-600 h-12 w-2/3 px-6',
-                  isMintDisabled ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
+                  isLoading ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
                 )}
-                disabled={isMintDisabled}
-                onClick={handleMint}
+                disabled={isLoading}
+                onClick={step === 2 ? handleMint : handleApprove}
               >
-                { isMintLoading ? (
+                { isLoading ? (
                   <div className='spinner text-red-600'></div>
                 ) : (
-                  <div>
-                    Mint { priceResult.isSuccess ? `(${scaleDown(priceResult.data.toString(), policyType === 0 ? 18 : 6)} ${policyType === 0 ? 'ETH' : 'USDC'})` : '' }
-                  </div>
+                  <div>{ btnText }</div>
                 ) }
               </button>
             </div>
