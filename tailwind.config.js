@@ -1,3 +1,6 @@
+const plugin = require("tailwindcss/plugin");
+const spinner = require("./tailwindPlugins/spinner.js");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -7,5 +10,5 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [],
+  plugins: [plugin(spinner)],
 }
