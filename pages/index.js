@@ -123,7 +123,7 @@ export default function Home() {
     setHasError(false)
     setNotifyMessage('Waiting for minting...')
     try {
-      const tx = await mintCallback()
+      const tx = await mintCallback?.()
       await tx.wait(2)
       setNotifyMessage(`Minted: ${tx.hash}`)
     } catch (err) {
