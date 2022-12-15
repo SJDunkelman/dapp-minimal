@@ -12,6 +12,7 @@ import BigNumber from 'bignumber.js';
 import { useIsMounted } from './api/useIsMounted'
 import { minterABI } from "../contracts/MinterABI.ts";
 import { usdcABI } from "../contracts/UsdcABI.ts";
+import { abi as HealthPotionABI } from "../contracts/HealthPotionABI";
 import SEO from '../components/SEO';
 
 
@@ -24,6 +25,11 @@ const usdcContractProps = {
   address: '0x07865c6E87B9F70255377e024ace6630C1Eaa37F',
   abi: usdcABI,
 };
+
+const healthPotionProps = {
+  address: '0x3E645C0E0BCbA8F2cC53248221bE36f99eb3cB7e',
+  abi: HealthPotionABI,
+}
 
 export default function Home() {
   const [isApproveLoading, setApproveLoading] = useState(false)
@@ -38,6 +44,12 @@ export default function Home() {
   // The variables below are used to query the price from the Minter contract in MinterABI.ts (https://goerli.etherscan.io/address/0x5F3eA712766849363c340cc49b8Cd24039680448)
   const [policyDays, setPolicyDays] = useState(30); // This can be either 30, 90, 180 or 365
   const [policyType, setPolicyType] = useState(0); // This can be either 0 or 1
+
+  const nftBalanceOfResult = useContractRead({
+    ...healthPotionProps,
+    functionName: 'balanceOf',
+    args: [address]
+  })
 
   const priceResult = useContractRead({
     ...minterContractProps,
@@ -67,6 +79,7 @@ export default function Home() {
   })
 
   const { writeAsync: approveCallback } = useContractWrite(allowanceConfig)
+  const isApproveDisabled = isApproveLoading || isMintLoading || !approveCallback
 
   const { config: mintConfig } = usePrepareContractWrite({
     ...minterContractProps,
@@ -82,6 +95,7 @@ export default function Home() {
   })
 
   const { writeAsync: mintCallback } = useContractWrite(mintConfig)
+  const isMintDisabled = isApproveLoading || isMintLoading || !mintCallback
 
   const handleChangeDays = (evt) => {
     setPolicyDays(Number(evt.target?.value))
@@ -118,6 +132,12 @@ export default function Home() {
   }
 
   const handleMint = async () => {
+    if (!new BigNumber(nftBalanceOfResult.data?.toString() || '0').isEqualTo(0)) {
+      setHasError(true)
+      setNotifyMessage('Can only mint one token per wallet')
+      return
+    }
+
     setMintLoading(true)
 
     setHasError(false)
@@ -221,7 +241,7 @@ export default function Home() {
             { notifyMessage && (
               <div className={classNames(
                 'overflow-x-auto rounded-xl w-1/2 px-4 py-3 mt-4',
-                hasError ? 'border-2 border-neutral-900' : ''
+                hasError ? 'text-red-600 border-2 border-red-600' : ''
               )}>{notifyMessage}</div>
             ) }
 
@@ -230,9 +250,9 @@ export default function Home() {
                 <button
                 className={classNames(
                   'border-2 border-neutral-900 rounded-lg hover:text-red-600 hover:border-red-600 h-12 w-2/3 px-6 mb-4',
-                  isApproveLoading ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
+                  isApproveDisabled ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
                 )}
-                  disabled={isApproveLoading || isMintLoading}
+                  disabled={isApproveDisabled}
                   onClick={handleApprove}
                 >
                   { isApproveLoading ? (
@@ -245,9 +265,9 @@ export default function Home() {
               <button
                 className={classNames(
                   'border-2 border-neutral-900 rounded-lg hover:text-red-600 hover:border-red-600 h-12 w-2/3 px-6',
-                  isMintLoading ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
+                  isMintDisabled ? 'cursor-not-allowed text-neutral-400 border-neutral-400 hover:text-neutral-400 hover:border-neutral-400' : ''
                 )}
-                disabled={isApproveLoading || isMintLoading}
+                disabled={isMintDisabled}
                 onClick={handleMint}
               >
                 { isMintLoading ? (
