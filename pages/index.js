@@ -120,8 +120,10 @@ export default function Home() {
     setNotifyMessage('Waiting for approval...')
     try {
       const tx = await approveCallback?.()
-      await tx.wait(2)
-      setNotifyMessage(`Approved: ${tx.hash}`)
+      if (tx && tx.hash) {
+        await tx.wait(2)
+        setNotifyMessage(`Approved: ${tx.hash}`)
+      }
     } catch (err) {
       console.log('handleApprove', 'err', err)
       setHasError(true)
@@ -144,8 +146,10 @@ export default function Home() {
     setNotifyMessage('Waiting for minting...')
     try {
       const tx = await mintCallback?.()
-      await tx.wait(2)
-      setNotifyMessage(`Minted: ${tx.hash}`)
+      if (tx && tx.hash) {
+        await tx.wait(2)
+        setNotifyMessage(`Minted: ${tx.hash}`)
+      }
     } catch (err) {
       console.log('handleMint', 'err', err)
       setHasError(true)
